@@ -1,23 +1,37 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run.sh — Run the Bloom conflict-sensitivity evaluation across multiple
-#          target models in parallel.
+# run.sh — Reproduce the published Bloom conflict-sensitivity evaluation
+#          against any target model(s), using the FROZEN understanding and
+#          ideation stages from the original run.
+#
+# Goal:
+#   This bundle ships
+#       bloom-results/conflict-insensitivity/understanding.json
+#       bloom-results/conflict-insensitivity/ideation.json
+#   captured from the published experiment. Their presence is the canonical
+#   contract: every target model is evaluated against the SAME 90 scenarios
+#   the original paper used, so the results are directly comparable.
+#
+#   If those frozen files are missing, this script falls back to regenerating
+#   them via Bloom, but it warns loudly first because the regenerated scenario
+#   set will NOT match the published one and the results will not be
+#   comparable to the paper.
 #
 # Usage:
-#   ./run.sh                Run all models in the MODELS array (parallel)
+#   ./run.sh                Reproduce: rollout + judgment for every model in
+#                           the MODELS array, in parallel, using the frozen
+#                           scenario set.
 #   ./run.sh --dry-run      Print the planned workdirs, target IDs, and
 #                           seed.yaml patches WITHOUT calling the Bloom CLI
-#                           or touching API keys
+#                           or touching API keys.
 #
-# How it works:
-#   1. Generates `understanding` + `ideation` ONCE in the shared
-#      bloom-results/conflict-insensitivity/ directory, so every model is
-#      evaluated against the same ideated scenarios.
-#   2. For each (model, reasoning) pair, creates an isolated workdir under
-#      _runs/, copies in the shared understanding.json + ideation.json, and
-#      launches `bloom rollout` + `bloom judgment` in the background.
-#   3. Waits for all parallel runs, then moves each workdir's results to
-#      bloom-results/conflict-insensitivity-<run_name>/.
+# Pipeline (per parallel worker):
+#   For each (model, reasoning) pair, the script creates an isolated workdir
+#   under _runs/, symlinks behaviors.json + models.json, copies a patched
+#   seed.yaml, copies in the frozen understanding.json + ideation.json so
+#   Bloom skips re-running them, then launches `bloom rollout` + `bloom
+#   judgment` in the background. After all jobs complete, results land in
+#   bloom-results/conflict-insensitivity-<run_name>/.
 #
 # Configuration:
 #   Edit the MODELS=(...) array below to add or remove target models.
@@ -115,38 +129,73 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Stage 1+2: shared understanding + ideation (run ONCE)
+# Stage 1+2: frozen scenario contract
+#
+# The published experiment ships its understanding.json and ideation.json so
+# every reproduction targets the SAME 90 scenarios. We treat those files as
+# the canonical input. If either is missing, we warn loudly and fall back to
+# regenerating from scratch — but the result will NOT be comparable to the
+# published paper.
 # -----------------------------------------------------------------------------
+understanding_path="$SHARED_RESULTS_DIR/understanding.json"
+ideation_path="$SHARED_RESULTS_DIR/ideation.json"
+
+frozen_present=1
+[[ -f "$understanding_path" ]] || frozen_present=0
+[[ -f "$ideation_path"      ]] || frozen_present=0
+
+if [[ "$frozen_present" -eq 1 ]]; then
+    u_size=$(du -h "$understanding_path" | cut -f1)
+    i_size=$(du -h "$ideation_path"      | cut -f1)
+    echo ""
+    echo "[scenarios] Using FROZEN scenario set from the published run:"
+    echo "              $understanding_path  ($u_size)"
+    echo "              $ideation_path  ($i_size)"
+    echo "            Every target model below will be evaluated against the"
+    echo "            same 90 scenarios used in the published paper."
+else
+    cat <<'WARN'
+
+============================================================================
+  WARNING: frozen scenario set is MISSING
+============================================================================
+  This bundle is intended to reproduce the published experiment by re-using
+  the frozen understanding.json and ideation.json that ship in
+      bloom-results/conflict-insensitivity/
+
+  One or both of those files is missing. The script will fall back to
+  regenerating them from behaviors.json via Bloom, but the regenerated
+  scenarios WILL NOT MATCH the published paper and the resulting scores
+  will not be directly comparable to the paper's findings.
+
+  To reproduce the paper exactly, restore the shipped files from the
+  GitHub repo:
+      https://github.com/akryshtal/conflict-sensitivity-eval-bloom
+============================================================================
+
+WARN
+fi
+
 if [[ "$DRY_RUN" -eq 0 ]]; then
     mkdir -p "$SHARED_RESULTS_DIR"
 fi
 
-if [[ ! -f "$SHARED_RESULTS_DIR/understanding.json" ]]; then
-    echo ""
-    echo "[shared] understanding.json missing"
+if [[ ! -f "$understanding_path" ]]; then
     if [[ "$DRY_RUN" -eq 1 ]]; then
         echo "  would run: bloom understanding ."
     else
         echo "  running: bloom understanding ."
         bloom understanding .
     fi
-else
-    echo ""
-    echo "[shared] understanding.json already exists — skipping"
 fi
 
-if [[ ! -f "$SHARED_RESULTS_DIR/ideation.json" ]]; then
-    echo ""
-    echo "[shared] ideation.json missing"
+if [[ ! -f "$ideation_path" ]]; then
     if [[ "$DRY_RUN" -eq 1 ]]; then
         echo "  would run: bloom ideation ."
     else
         echo "  running: bloom ideation ."
         bloom ideation .
     fi
-else
-    echo ""
-    echo "[shared] ideation.json already exists — skipping"
 fi
 
 # -----------------------------------------------------------------------------
