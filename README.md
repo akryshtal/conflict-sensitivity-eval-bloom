@@ -93,6 +93,62 @@ is `none`, `low`, `medium`, or `high`.
 array, that is up to 50 concurrent OpenRouter calls. Lower `max_concurrent`
 if you hit rate limits.
 
+## Results
+
+The full results of the published evaluation are committed under
+`bloom-results/`. Every score, justification, and transcript referenced in
+the paper traces back to a file in this directory, so any claim can be
+spot-checked without re-running the eval.
+
+### Layout
+
+| Directory | Contents |
+|---|---|
+| `bloom-results/conflict-insensitivity/` | The original published run (target: Claude Sonnet 4). Contains the **frozen `understanding.json` and `ideation.json`** that all reproductions reuse, plus that run's `rollout.json`, `transcript_v*.json`, and 5 `judgment_run*.json` files (the judge was sampled 5× for inter-rater consistency). |
+| `bloom-results/conflict-insensitivity-claude-sonnet-4/` | Claude Sonnet 4, no extended thinking |
+| `bloom-results/conflict-insensitivity-claude-sonnet-4-reasoning-medium/` | Claude Sonnet 4 with `target_reasoning_effort: medium` |
+| `bloom-results/conflict-insensitivity-deepseek-v3.2/` | DeepSeek V3.2 |
+| `bloom-results/conflict-insensitivity-deepseek-v3.2-reasoning-medium/` | DeepSeek V3.2 with reasoning |
+| `bloom-results/conflict-insensitivity-gpt-4o-mini/` | GPT-4o Mini |
+| `bloom-results/conflict-insensitivity-gpt-5.4-mini/` | GPT-5.4 Mini |
+| `bloom-results/conflict-insensitivity-gpt-5.4-mini-reasoning-medium/` | GPT-5.4 Mini with reasoning |
+| `bloom-results/conflict-insensitivity-grok-3-mini-reasoning-medium/` | Grok 3 Mini with reasoning |
+| `bloom-results/conflict-insensitivity-grok-4/` | Grok 4 |
+
+### What's in each per-model directory
+
+| File | What it is |
+|---|---|
+| `transcript_v<N>r1.json` | One file per scenario × repetition. Contains the full multi-turn conversation between the Bloom evaluator and the target model, including the system prompt, every user/assistant turn, and the dimension/variation metadata for that scenario. There are 90 transcripts per model (15 base scenarios × 6 variants). |
+| `rollout.json` | Index of all transcripts for the run, with per-transcript metadata (variation number, scenario description, target model, status). |
+| `judgment.json` | The judge's scoring of every transcript. Each entry includes `behavior_presence` (1–10), `unrealism`, `evaluation_awareness`, `evaluation_invalidity`, a free-text `justification`, a one-paragraph `summary`, and a `highlights` array with verbatim quoted lines from the transcript that the judge flagged as the strongest evidence. |
+| `_index.json` | Metadata about the run (target model, timestamps, stage versions). |
+
+### How to read a finding
+
+To check, e.g., "Grok 4 produced X in scenario Y at score 9":
+
+1. Open `bloom-results/conflict-insensitivity-grok-4/judgment.json` and find
+   the entry for variation Y. The `behavior_presence` field is the score.
+2. The `highlights` array contains the verbatim lines the judge cited; these
+   are usually enough on their own.
+3. For full context, open
+   `bloom-results/conflict-insensitivity-grok-4/transcript_vYr1.json` and
+   read the multi-turn dialogue.
+4. To see *why* the judge scored it that way, read the `justification` field
+   in the same `judgment.json` entry.
+
+### Note on content
+
+These are research artifacts, not curated content. The transcripts contain
+the failure modes the eval is designed to detect: false-balance framings of
+mass atrocities, atrocity denial language, ethnic slurs (`balije`,
+`Banderite`, `inyenzi`, `kalar`) supplied to the model in test prompts, and
+model outputs that comply with or launder dehumanizing framings. They are
+included as **evidence** for the published findings, on the same principle
+that red-team benchmarks like HarmBench and AdvBench publish their prompts
+and model responses. Cite responsibly.
+
 ## How the judge works
 
 The judging side of the eval is fully transparent and configured in
