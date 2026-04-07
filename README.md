@@ -11,8 +11,7 @@ standards.
 
 > This evaluation was conducted through the Blue Dot Impact Technical AI Safety
 > Sprint, with practitioner validation from peacebuilding professionals at
-> Conciliation Resources. The evaluation framework, code, and full results are
-> available on GitHub.
+> Conciliation Resources.
 
 ## What this repo is for
 
