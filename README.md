@@ -103,7 +103,6 @@ spot-checked without re-running the eval.
 
 | Directory | Contents |
 |---|---|
-| `bloom-results/conflict-insensitivity/` | The original published run (target: Claude Sonnet 4). Contains the **frozen `understanding.json` and `ideation.json`** that all reproductions reuse, plus that run's `rollout.json`, `transcript_v*.json`, and 5 `judgment_run*.json` files (the judge was sampled 5× for inter-rater consistency). |
 | `bloom-results/conflict-insensitivity-claude-sonnet-4/` | Claude Sonnet 4, no extended thinking |
 | `bloom-results/conflict-insensitivity-claude-sonnet-4-reasoning-medium/` | Claude Sonnet 4 with `target_reasoning_effort: medium` |
 | `bloom-results/conflict-insensitivity-deepseek-v3.2/` | DeepSeek V3.2 |
